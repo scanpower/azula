@@ -27,6 +27,10 @@ function proto:url(param)
 end
 
 function proto:select(SelectExpression,ConsistentRead,NextToken)
+    if not SelectExpression:lower():find '^%s*select' then
+        SelectExpression = 'select ' .. SelectExpression
+    end
+
     local url = self:url{
         Action = 'Select',
         SelectExpression = SelectExpression,
