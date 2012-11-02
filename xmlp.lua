@@ -21,7 +21,9 @@ end
 
 function util.fromxml(str)
     if str then
-        return str:gsub("&#x([%x]+)%;",
+        return str:gsub('^%s+', '')
+                  :gsub('%s+$', '')
+                  :gsub("&#x([%x]+)%;",
                         function(h)
                             return string.char(tonumber(h,16))
                         end)
@@ -34,14 +36,12 @@ function util.fromxml(str)
                   :gsub('&gt;', '>')
                   :gsub('&lt;', '<')
                   :gsub('&amp;', '&')
-                  :gsub('^%s+', '')
-                  :gsub('%s+$', '')
     end
 end
 
 function util.parseattrs(s)
     local as = {}
-    s:gsub("(%w+)=([\"'])(.-)%2", function(n, _, v)
+    s:gsub("([-%w:_%.]+)%s*=%s*([\"'])(.-)%2", function(n, _, v)
         as[#as+1] = {name = n,  value = util.fromxml(v)}
     end)
     return as
@@ -60,7 +60,7 @@ function proto:parse(str)
     local i = 1
 
     while true do
-        local ni, j, c, label, xattr, empty = str:find("<(%/?)([%w:]+)(.-)(%/?)>", i)
+        local ni, j, c, label, xattr, empty = str:find("<(%/?)%s*([%w:]+)%s*(.-)%s*(%/?)>", i)
         if not ni then break end
 
         local text = str:sub(i, ni-1)
