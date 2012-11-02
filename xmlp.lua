@@ -2,6 +2,10 @@ local proto = {}
 local util = {}
 local xmlp = { util = util }
 
+function xmlp.new(args)
+    return setmetatable(args,{__index=proto})
+end
+
 function util.toxml(str)
     if str then
         return str:gsub('&', '&amp;')
@@ -9,8 +13,8 @@ function util.toxml(str)
                   :gsub('>', '&gt;')
                   :gsub('"', '&quot;')
                   :gsub("([^%w%&%;%p%\t% ])",
-                        function (c) 
-                            return ("&#x%X;"):format(c:byte()) 
+                        function (c)
+                            return ("&#x%X;"):format(c:byte())
                         end)
     end
 end
@@ -18,12 +22,12 @@ end
 function util.fromxml(str)
     if str then
         return str:gsub("&#x([%x]+)%;",
-                        function(h) 
+                        function(h)
                             return string.char(tonumber(h,16))
                         end)
                   :gsub("&#([0-9]+)%;",
-                        function(h) 
-                            return string.char(tonumber(h,10)) 
+                        function(h)
+                            return string.char(tonumber(h,10))
                         end)
                   :gsub('&quot;', '"')
                   :gsub('&apos;', "'")
@@ -34,23 +38,13 @@ function util.fromxml(str)
                   :gsub('%s+$', '')
     end
 end
-   
-local function mkattr(name,value)
-    return { name = name
-           , value = value }
-end
 
-function util.parseargs(s,self)
-    local arg = {}
+function util.parseattrs(s)
+    local as = {}
     s:gsub("(%w+)=([\"'])(.-)%2", function(n, _, v)
-        name, value = n, util.fromxml(v)
-        if self.arg then
-            arg[#arg+1] = mkattr(self:arg(name,value))
-        else
-            arg[#arg+1] = mkattr(name, value)
-        end
+        as[#as+1] = {name = n,  value = util.fromxml(v)}
     end)
-    return arg
+    return as
 end
 
 local function mknode(name,attrs)
@@ -66,32 +60,27 @@ function proto:parse(str)
     local i = 1
 
     while true do
-        local ni, j, c, label, xarg, empty = str:find("<(%/?)([%w:]+)(.-)(%/?)>", i)
+        local ni, j, c, label, xattr, empty = str:find("<(%/?)([%w:]+)(.-)(%/?)>", i)
         if not ni then break end
 
         local text = str:sub(i, ni-1)
-        if not text:find"^%s*$" then
+        if not text:find "^%s*$" then
             local node = util.fromxml(text)
-            if self.textnode then
-                top.children[#top.children+1] = self:textnode(node)
-            else
-                top.children[#top.children+1] = node 
-            end
+            if self.textnode then self.textnode(node) end
+            top.children[#top.children+1] = node
         end
-        if empty == "/" then
-            if self.emptynode then
-                top.children[#top.children+1] = mknode(self:emptynode(label, util.parseargs(xarg,self)))
-            else
-                top.children[#top.children+1] = mknode(label, util.parseargs(xarg,self))
-            end
+        if empty == '/' then
+            local attrs = util.parseattrs(xattr)
+            if self.node then self.node(label, attrs) end
+            top.children[#top.children+1] = mknode(label, attrs)
+            if self.endnode then self.endnode(label) end
         elseif c == '' then
-            if self.node then
-                top = mknode(self:node(label, util.parseargs(xarg,self)))
-            else
-                top = mknode(label, util.parseargs(xarg,self))
-            end
+            local attrs = util.parseattrs(xattr)
+            if self.node then self.node(label, attrs) end
+            top = mknode(label, attrs)
             tree[#tree+1] = top
         else
+            if self.endnode then self.endnode(label) end
             local toclose = table.remove(tree)
             top = tree[#tree]
             if #tree < 1 then
@@ -105,8 +94,10 @@ function proto:parse(str)
         i = j+1
     end
     local text = str:sub(i)
-    if not text:find"^%s*$" then
-        top.children[#top.children+1]=util.fromxml(text)
+    if not text:find "^%s*$" then
+        local node = util.fromxml(text)
+        if self.textnode then self.textnode(node) end
+        top.children[#top.children+1] = node
     end
     if #tree > 1 then
         error("xmlp: malformed xml: unclosed <"..tree[#tree].name..">")
@@ -134,26 +125,22 @@ function xmlp.parsefile(filename)
 end
 
 local function dumpattrs(as)
-    if #as > 0 then
-        local fas = {}
-        for _,a in ipairs(as) do
-             fas[#fas+1] = ('%s "%s"'):format(a.name, a.value)
-        end
-        return '{' .. table.concat(fas," ") .. '}'
-    else
-        return ''
+    local fas = {}
+    for _,a in ipairs(as) do
+         fas[#fas+1] = ('%s "%s"'):format(a.name, a.value:gsub('"','\\"'))
     end
+    return '{' .. table.concat(fas," ") .. '}'
 end
 
 local function dump(ns,d,lines)
     local tab = ' '
     for _,node in ipairs(ns) do
         if type(node) == 'string' then
-            lines[#lines+1] = tab:rep(d)..'"'..node..'"'
+            lines[#lines+1] = tab:rep(d)..'"'..node:gsub('"','\\"')..'"'
         else
-            local name = node.name or 'root'
+            local name = node.name or '<root>'
             lines[#lines+1] = tab:rep(d)..'('..name
-            d = d + name:len() + 2
+            d = d + 2
             if #node.attrs > 0 then
                 lines[#lines+1] = tab:rep(d) .. dumpattrs(node.attrs)
             end
@@ -168,10 +155,6 @@ end
 
 function util.dump(xml)
     return table.concat(dump(xml,0,{}),'\n')
-end
-
-function xmlp.new(args)
-    return setmetatable(args,{__index=proto})
 end
 
 return xmlp
