@@ -4,10 +4,11 @@ end
 
 function urlencode(str)
     if str then
-        str = tostring(str):gsub('\n', '\r\n')
-                 :gsub("([^-%w])", function(c) return ("%%%02X"):format(c:byte()) end)
+        return tostring(str):gsub('\n', '\r\n')
+            :gsub("([^-%w_])", function(c)
+                return ("%%%02X"):format(c:byte())
+            end)
     end
-    return str
 end
 
 local function params_to_string(params)
