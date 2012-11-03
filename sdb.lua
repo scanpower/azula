@@ -1,5 +1,6 @@
 require 'scanpower/azula/util.lua'
-require 'scanpower/azula/xmlp.lua'
+
+local xmlp = require 'scanpower/azula/xmlp.lua'
 
 local default = {
     region = 'us-east-1',
