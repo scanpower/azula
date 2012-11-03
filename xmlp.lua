@@ -140,12 +140,11 @@ local function dump(ns,d,lines)
         else
             local name = node.name or '<root>'
             lines[#lines+1] = tab:rep(d)..'('..name
-            d = d + 2
             if #node.attrs > 0 then
-                lines[#lines+1] = tab:rep(d) .. dumpattrs(node.attrs)
+                lines[#lines+1] = tab:rep(d + 2) .. dumpattrs(node.attrs)
             end
             if #node.children > 0 then
-                dump(node.children,d,lines)
+                dump(node.children,d + 2,lines)
             end
             lines[#lines] = lines[#lines] .. ')'
         end

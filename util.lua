@@ -34,7 +34,7 @@ function signed_url(key,host,path,params)
     end
     table.sort(ordered,function(a,b) return a.k < b.k end)
 
-    local query = params_to_string(ordered):gsub('_','.')
+    local query = params_to_string(ordered)
     local data = ("GET\n%s\n%s\n%s"):format(host,path,query)
     local signature = base64.encode( crypto.hmac( key, data, crypto.sha256 ).digest() )
 
