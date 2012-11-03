@@ -36,6 +36,7 @@ function session:start()
                 ))
         }
     end
+    return self
 end
 
 return session
