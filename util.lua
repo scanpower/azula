@@ -1,8 +1,8 @@
-function iso8601(d)
+local function iso8601(d)
     return os.date('%Y-%m-%dT%H:%M:%S%z',d)
 end
 
-function urlencode(str)
+local function urlencode(str)
     if str then
         return tostring(str):gsub('\n', '\r\n')
             :gsub("([^-%w_])", function(c)
@@ -19,7 +19,7 @@ local function params_to_string(params)
     return table.concat(query,'&')
 end
 
-function signed_url(key,host,path,params)
+local function signed_url(key,host,path,params)
     params.SignatureVersion = 2
     params.SignatureMethod = 'HmacSHA256'
     params.Timestamp = iso8601()
@@ -44,3 +44,9 @@ function signed_url(key,host,path,params)
 
     return ("https://%s%s?%s"):format(host,path,query)
 end
+
+return {
+    iso8601 = iso8601,
+    urlencode = urlencode,
+    signed_url = signed_url,
+}

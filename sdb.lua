@@ -1,6 +1,7 @@
-require 'scanpower/azula/util.lua'
+local util = require 'scanpower/azula/util.lua'
 
-local xmlp = require 'scanpower/azula/xmlp.lua'
+local lom = require 'lxp.lom'
+local xpath = require 'xpath'
 
 local default = {
     region = 'us-east-1',
@@ -23,46 +24,29 @@ local sdb   = {
 function proto:url(param)
     param.AWSAccessKeyId = self.access_key
     param.Version = sdb.apiversion
-    return signed_url(self.secret_access_key,
+    return util.signed_url(self.secret_access_key,
                       self.endpoint or default.endpoint,
                       nil, param)
 end
 
 local function parseSelectResponse(xmlstr)
-    local xml = xmlp.parse(xmlstr)
-    local rows = {}
-    if #xml > 0 and xml[1].children then
-        for _,node in ipairs(xml[1].children) do
-            if type(node) == 'table' and node.name == 'SelectResponse' then
-                for _,response in ipairs(node.children) do
-                    if response.name == 'SelectResult' then
-                        for _,item in ipairs(response.children) do
-                            if item.name == 'Item' then
-                                local row = {}
-                                for _,attr in ipairs(item.children) do
-                                    if attr.name == 'Name' then
-                                        log('itemName()')
-                                        row['itemName()'] = table.concat(attr.children,'')
-                                    elseif attr.name == 'Attribute' then
-                                        local cname, cval
-                                        for _,n in ipairs(attr.children) do
-                                            if n.name == 'Name' then cname = table.concat(n.children,'') end
-                                            if n.name == 'Value' then cval = table.concat(n.children,'') end
-                                        end
-                                        if cname and cval then
-                                            row[cname] = cval
-                                        end
-                                    end -- attr.name
-                                end -- item.children
-                                rows[#rows+1] = row
-                            end -- Item
-                        end -- response.children
-                    end -- SelectResult
-                end -- node.children
-            end -- SelectResponse
-        end -- xml.children
+    local xml = lom.parse(xmlstr)
+    local items = xpath.selectNodes(xml, '//SelectResult/Item')
+
+    if #items > 0 then
+        local rows = {}
+        for _,item in ipairs(items) do
+            local row = {
+                ['itemName()'] = xpath.selectNodes(item, '//Name/text()')[1] 
+            }
+            for _,attr in ipairs(xpath.selectNodes(item, '//Attribute')) do
+                row[xpath.selectNodes(attr, '//Name/text()' )[1]] =
+                    xpath.selectNodes(attr, '//Value/text()')[1]
+            end
+            rows[#rows+1] = row
+        end
+        return rows
     end
-    return rows
 end
 
 function proto:select(SelectExpression,ConsistentRead,NextToken)
